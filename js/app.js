@@ -25,7 +25,7 @@
       $("volPip1").value = saved.vol.p1 ?? 0.6;
       $("volPip2").value = saved.vol.p2 ?? 0.6;
     }
-  } catch {}
+  } catch (e) {}
 
   const persist = () => {
     localStorage.setItem(storeKey, JSON.stringify({
@@ -40,13 +40,15 @@
     el.textContent = msg;
     el.classList.add("show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.remove("show"), 2800);
+    toast._t = setTimeout(() => el.classList.remove("show"), 3200);
   };
 
   const attr = (line, key) => {
     const m = line.match(new RegExp(key + '="([^"]*)"', "i"));
     return m ? m[1] : "";
   };
+
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (ch) => "&#" + ch.charCodeAt(0) + ";");
 
   const parseM3U = (text) => {
     const lines = text.split(/\r?\n/);
@@ -86,7 +88,7 @@
   };
 
   const sortChannels = (arr) => {
-    const copy = [...arr];
+    const copy = arr.slice();
     if (state.popularFirst) copy.sort((a, b) => (b.score - a.score) || a.name.localeCompare(b.name));
     else copy.sort((a, b) => a.name.localeCompare(b.name));
     return copy;
@@ -94,20 +96,18 @@
 
   const renderLists = () => {
     const q = state.listQuery.toLowerCase();
-    $("listNav").innerHTML = lists.filter((l) => !q || l.name.toLowerCase().includes(q) || l.desc.toLowerCase().includes(q)).map((l) => `
-      <button class="list-btn ${l.id === state.listId ? "active" : ""}" data-list="${l.id}">
-        <span class="list-ico">${l.icon}</span>
-        <span class="list-meta">
-          <span class="list-name">${l.name}</span>
-          <span class="list-desc">${l.desc}</span>
-        </span>
-      </button>
-    `).join("");
+    $("listNav").innerHTML = lists.filter((l) => !q || l.name.toLowerCase().includes(q) || l.desc.toLowerCase().includes(q)).map((l) => {
+      const on = l.id === state.listId ? " active" : "";
+      return '<button class="list-btn' + on + '" data-list="' + l.id + '">' +
+        '<span class="list-ico">' + l.icon + '</span><span class="list-meta">' +
+        '<span class="list-name">' + l.name + '</span>' +
+        '<span class="list-desc">' + l.desc + '</span></span></button>';
+    }).join("");
   };
 
   const logoFallback = (name) => {
     const letters = name.replace(/[^A-Za-z0-9]/g, " ").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "TV";
-    return `<div class="thumb ph">${letters}</div>`;
+    return '<div class="thumb ph">' + letters + '</div>';
   };
 
   const renderChannels = () => {
@@ -118,29 +118,24 @@
       rows = rows.filter((c) => c.name.toLowerCase().includes(q) || (c.group || "").toLowerCase().includes(q));
     }
     state.filtered = sortChannels(rows).slice(0, 400);
-    $("channelCount").textContent = `${state.filtered.length}${state.channels.length > state.filtered.length ? ` of ${state.channels.length}` : ""} channels`;
+    const extra = state.channels.length > state.filtered.length ? " of " + state.channels.length : "";
+    $("channelCount").textContent = state.filtered.length + extra + " channels";
     $("channels").innerHTML = state.filtered.map((c) => {
-      const on = state.current && state.current.url === c.url;
-      const fav = state.favorites.has(c.url);
+      const on = state.current && state.current.url === c.url ? " on" : "";
+      const fav = state.favorites.has(c.url) ? " on" : "";
+      const enc = encodeURIComponent(c.url);
       const thumb = c.logo
-        ? `<img class="thumb" src="${c.logo}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'thumb ph',textContent:'TV'}))" />`
+        ? '<img class="thumb" src="' + c.logo + '" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=thumb ph>TV</div>\'">'
         : logoFallback(c.name);
-      return `<article class="card ${on ? "on" : ""}" data-url="${encodeURIComponent(c.url)}">
-        ${thumb}
-        <div>
-          <h3>${escapeHtml(c.name)}</h3>
-          <p>${escapeHtml(c.group || "")}</p>
-        </div>
-        <div class="card-actions">
-          <button class="tiny star ${fav ? "on" : ""}" data-fav="${encodeURIComponent(c.url)}" title="Favorite">★</button>
-          <button class="tiny" data-to="1" data-url="${encodeURIComponent(c.url)}">PIP1</button>
-          <button class="tiny" data-to="2" data-url="${encodeURIComponent(c.url)}">PIP2</button>
-        </div>
-      </article>`;
-    }).join("") || `<p style="color:var(--muted);padding:12px">No channels match this filter.</p>`;
+      return '<article class="card' + on + '" data-url="' + enc + '">' + thumb +
+        '<div><h3>' + escapeHtml(c.name) + '</h3><p>' + escapeHtml(c.group || "") + '</p></div>' +
+        '<div class="card-actions">' +
+        '<button class="tiny star' + fav + '" data-fav="' + enc + '">*</button>' +
+        '<button class="tiny" data-to="1" data-url="' + enc + '">PIP1</button>' +
+        '<button class="tiny" data-to="2" data-url="' + enc + '">PIP2</button>' +
+        '</div></article>';
+    }).join("") || '<p style="color:var(--muted);padding:12px">No channels match this filter.</p>';
   };
-
-  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&", "<": "<", ">": ">", '"': """, "'": "&#39;" }[ch]));
 
   const findChannel = (url) => state.channels.find((c) => c.url === url) || state.current;
 
@@ -149,10 +144,10 @@
     state.listId = list.id;
     $("nowList").textContent = list.name;
     renderLists();
-    $("channels").innerHTML = `<p style="color:var(--muted);padding:12px">Loading ${list.name}…</p>`;
+    $("channels").innerHTML = '<p style="color:var(--muted);padding:12px">Loading ' + list.name + '...</p>';
     try {
       if (list.type === "featured") {
-        state.channels = window.LUMEN_FEATURED.map((c) => ({ ...c, score: c.score || popularity(c.name) }));
+        state.channels = window.LUMEN_FEATURED.map((c) => Object.assign({}, c, { score: c.score || popularity(c.name) }));
       } else {
         const res = await fetch(list.url);
         if (!res.ok) throw new Error("Playlist HTTP " + res.status);
@@ -161,9 +156,13 @@
         if (!state.channels.length) throw new Error("No playable entries in playlist");
       }
       renderChannels();
-      toast(`${list.name}: ${state.channels.length} channels`);
+      toast(list.name + ": " + state.channels.length + " channels");
+      if (list.type === "featured" && !state.current && state.channels[0]) {
+        const demo = state.channels.find((c) => /demo/i.test(c.name));
+        playMain(demo || state.channels[0]);
+      }
     } catch (err) {
-      $("channels").innerHTML = `<p style="color:var(--danger);padding:12px">${escapeHtml(err.message)}. Many country lists are large; try Featured or News.</p>`;
+      $("channels").innerHTML = '<p style="color:var(--danger);padding:12px">' + escapeHtml(err.message) + '. Try Featured or News.</p>';
     }
   }
 
@@ -171,21 +170,20 @@
     destroyHls(slot);
     video.pause();
     if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false,
-        maxBufferLength: 30,
-        xhrSetup: (xhr) => { xhr.withCredentials = false; }
-      });
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30 });
       hls.loadSource(url);
       hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {
+          video.muted = true;
+          video.play().catch(() => toast("Click the player to start."));
+        });
+      });
       hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-          else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-          else toast("This stream blocked browser playback (CORS or geo). Try another channel.");
-        }
+        if (!data.fatal) return;
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        else toast("This feed will not play in a browser. Try Featured HLS demo or another channel.");
       });
       state.hls[slot] = hls;
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -199,7 +197,7 @@
   function destroyHls(slot) {
     const h = state.hls[slot];
     if (h) {
-      try { h.destroy(); } catch {}
+      try { h.destroy(); } catch (e) {}
       state.hls[slot] = null;
     }
   }
@@ -214,7 +212,7 @@
     video.muted = false;
     video.volume = Number($("volMain").value);
     attachHls(video, ch.url, "main");
-    $("playBtn").textContent = "❚❚";
+    $("playBtn").textContent = "||";
     renderChannels();
     toast("Playing " + ch.name);
   }
@@ -222,17 +220,16 @@
   function playPip(slot, ch) {
     if (!ch) return;
     state.pip[slot] = ch;
-    const box = $("pip" + slot);
-    box.hidden = false;
+    $("pip" + slot).hidden = false;
     $("pip" + slot + "Name").textContent = ch.name;
     const video = $("pip" + slot + "Video");
     video.muted = true;
     video.volume = Number($("volPip" + slot).value);
     attachHls(video, ch.url, slot);
-    $("mutePip" + slot).textContent = "🔇";
+    $("mutePip" + slot).textContent = "x";
     $("mutePip" + slot).title = "Unmute PIP " + slot;
     positionPip(slot);
-    toast(`PIP ${slot}: ${ch.name} (muted — unmute in the PIP bar)`);
+    toast("PIP " + slot + ": " + ch.name + " (muted — unmute on the PIP bar)");
   }
 
   function closePip(slot) {
@@ -263,25 +260,22 @@
   }
 
   function enableDragResize() {
-    const theater = $("theater");
     let mode = null;
     document.addEventListener("pointerdown", (e) => {
       const resize = e.target.closest("[data-resize]");
       const bar = e.target.closest(".pip-bar");
       if (resize) {
-        const slot = resize.dataset.resize;
-        const el = $("pip" + slot);
+        const el = $("pip" + resize.dataset.resize);
         mode = { type: "resize", el, x: e.clientX, y: e.clientY, w: el.offsetWidth, h: el.offsetHeight };
-        el.setPointerCapture?.(e.pointerId);
       } else if (bar) {
         const el = bar.closest(".pip");
         const r = el.getBoundingClientRect();
-        const t = theater.getBoundingClientRect();
-        mode = { type: "drag", el, dx: e.clientX - r.left, dy: e.clientY - r.top, t };
+        const t = $("theater").getBoundingClientRect();
+        mode = { type: "drag", el, dx: e.clientX - r.left, dy: e.clientY - r.top };
         el.style.right = "auto";
         el.style.bottom = "auto";
-        el.style.left = r.left - t.left + "px";
-        el.style.top = r.top - t.top + "px";
+        el.style.left = (r.left - t.left) + "px";
+        el.style.top = (r.top - t.top) + "px";
       }
     });
     document.addEventListener("pointermove", (e) => {
@@ -318,8 +312,7 @@
     const to = e.target.closest("[data-to]");
     if (to) {
       const url = decodeURIComponent(to.dataset.url);
-      const ch = findChannel(url) || state.filtered.find((c) => c.url === url);
-      playPip(Number(to.dataset.to), ch);
+      playPip(Number(to.dataset.to), findChannel(url) || state.filtered.find((c) => c.url === url));
       return;
     }
     const card = e.target.closest(".card");
@@ -338,7 +331,7 @@
   });
   $("sortBtn").addEventListener("click", () => {
     state.popularFirst = !state.popularFirst;
-    $("sortBtn").textContent = state.popularFirst ? "Popular first" : "A–Z";
+    $("sortBtn").textContent = state.popularFirst ? "Popular first" : "A-Z";
     persist();
     renderChannels();
   });
@@ -346,13 +339,13 @@
 
   $("playBtn").addEventListener("click", () => {
     const v = $("mainVideo");
-    if (v.paused) { v.play(); $("playBtn").textContent = "❚❚"; }
-    else { v.pause(); $("playBtn").textContent = "▶"; }
+    if (v.paused) { v.play(); $("playBtn").textContent = "||"; }
+    else { v.pause(); $("playBtn").textContent = ">"; }
   });
   $("muteMain").addEventListener("click", () => {
     const v = $("mainVideo");
     v.muted = !v.muted;
-    $("muteMain").textContent = v.muted ? "🔇" : "🔊";
+    $("muteMain").textContent = v.muted ? "x" : "o";
   });
   $("volMain").addEventListener("input", (e) => {
     $("mainVideo").volume = Number(e.target.value);
@@ -365,7 +358,7 @@
     $("mutePip" + slot).addEventListener("click", () => {
       const v = $("pip" + slot + "Video");
       v.muted = !v.muted;
-      $("mutePip" + slot).textContent = v.muted ? "🔇" : "🔊";
+      $("mutePip" + slot).textContent = v.muted ? "x" : "o";
       $("mutePip" + slot).title = v.muted ? "Unmute PIP " + slot : "Mute PIP " + slot;
     });
     $("volPip" + slot).addEventListener("input", (e) => {
@@ -385,8 +378,8 @@
   $("pip2FromMain").addEventListener("click", () => state.current && playPip(2, state.current));
   $("fsBtn").addEventListener("click", () => {
     const el = $("theater");
-    if (!document.fullscreenElement) el.requestFullscreen?.();
-    else document.exitFullscreen?.();
+    if (!document.fullscreenElement) el.requestFullscreen && el.requestFullscreen();
+    else document.exitFullscreen && document.exitFullscreen();
   });
 
   const modal = $("modal");
@@ -399,19 +392,19 @@
     modal.showModal();
   });
   $("helpBtn").addEventListener("click", () => {
-    $("modalTitle").textContent = "Shortcuts & notes";
-    $("modalHint").textContent = "Lumen TV plays publicly listed streams in the browser. Some feeds block web playback via CORS or geo rules even when they work in VLC.";
+    $("modalTitle").textContent = "Shortcuts and notes";
+    $("modalHint").textContent = "Watch at tbenitz.github.io/lumen-tv — not the GitHub code page. Some public feeds block browsers even when they work in VLC.";
     $("customUrl").hidden = true;
     $("modalOk").hidden = true;
     $("keys").hidden = false;
-    $("keys").textContent = `Space        play / pause main\nM            mute main\n1 / 2        send current channel to PIP\nEsc          close last PIP\nF            fullscreen theater\n/            focus channel search\n\nClick a card to play on main.\nPIP1 / PIP2 buttons open independent floating players.\nEach PIP starts muted. Unmute and set volume on that window.\nDrag the PIP header to move. Drag the gold corner to resize.`;
+    $("keys").textContent = "Space play/pause\nM mute main\n1 / 2 send to PIP\nEsc close PIP\nF fullscreen\n/ search";
     modal.showModal();
   });
   modal.addEventListener("close", async () => {
     if (modal.returnValue !== "ok") return;
     const url = $("customUrl").value.trim();
     if (!url) return;
-    lists.unshift({ id: "custom-" + Date.now(), name: "Custom list", desc: "Loaded by you", icon: "+", url });
+    lists.unshift({ id: "custom-" + Date.now(), name: "Custom list", desc: "Loaded by you", icon: "+", url: url });
     await loadList(lists[0].id);
   });
 
@@ -430,7 +423,7 @@
   });
 
   enableDragResize();
-  $("sortBtn").textContent = state.popularFirst ? "Popular first" : "A–Z";
+  $("sortBtn").textContent = state.popularFirst ? "Popular first" : "A-Z";
   renderLists();
   loadList("featured");
 })();
