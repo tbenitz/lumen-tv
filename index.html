@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Lumen TV</title>
-  <link rel="stylesheet" href="css/app.css?v=4" />
+  <link rel="stylesheet" href="css/app.css?v=5" />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet" />
 </head>
 <body>
@@ -37,6 +37,7 @@
         </div>
         <div class="top-actions">
           <span class="check-pill" id="checkStatus"></span>
+          <button class="chip" id="checkBtn" type="button">Check feeds</button>
           <button class="chip" id="favFilterBtn" type="button">Favorites</button>
           <button class="chip" id="sortBtn" type="button">Popular first</button>
         </div>
@@ -46,7 +47,7 @@
           <video id="mainVideo" playsinline></video>
           <div class="poster-veil" id="veil">
             <div class="veil-mark">LUMEN</div>
-            <p>Hide lists and channels for a bigger picture. Dead feeds are removed as they are checked.</p>
+            <p>Last session resumes automatically. Check feeds about once a week.</p>
           </div>
           <div class="osd">
             <div class="osd-left">
@@ -99,7 +100,7 @@
     </form>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
-  <script src="data/playlists.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="data/playlists.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>
