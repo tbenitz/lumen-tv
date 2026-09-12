@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#07070c" />
-  <meta name="description" content="Lumen TV — a polished public-stream viewer with dual independent picture-in-picture, per-player volume, and 30 curated free playlists." />
+  <meta name="description" content="Lumen TV — public-stream viewer with dual PIP." />
   <title>Lumen TV</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -23,7 +23,6 @@
         </div>
       </div>
       <label class="search">
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"/></svg>
         <input id="listSearch" type="search" placeholder="Filter lists…" autocomplete="off" />
       </label>
       <nav class="lists" id="listNav" aria-label="Channel lists"></nav>
@@ -43,7 +42,7 @@
           </div>
         </div>
         <div class="top-actions">
-          <button class="chip" id="favFilterBtn" type="button">★ Favorites</button>
+          <button class="chip" id="favFilterBtn" type="button">Favorites</button>
           <button class="chip" id="sortBtn" type="button">Popular first</button>
         </div>
       </header>
@@ -52,19 +51,19 @@
           <video id="mainVideo" playsinline></video>
           <div class="poster-veil" id="veil">
             <div class="veil-mark">LUMEN</div>
-            <p>Pick a public channel to start. PIP 1 and PIP 2 can run beside the main feed with independent volume.</p>
+            <p>Open https://tbenitz.github.io/lumen-tv/ then click a channel. Featured includes a guaranteed HLS demo.</p>
           </div>
           <div class="osd" id="osd">
             <div class="osd-left">
-              <button class="ctrl" id="playBtn" type="button" title="Play / Pause">▶</button>
-              <button class="ctrl" id="muteMain" type="button" title="Mute main">🔊</button>
+              <button class="ctrl" id="playBtn" type="button">Play</button>
+              <button class="ctrl" id="muteMain" type="button">Mute</button>
               <input id="volMain" class="vol" type="range" min="0" max="1" step="0.01" value="1" />
               <span class="vol-label" id="volMainLbl">100%</span>
             </div>
             <div class="osd-right">
-              <button class="ctrl" id="pip1FromMain" type="button" title="Send current to PIP 1">PIP 1</button>
-              <button class="ctrl" id="pip2FromMain" type="button" title="Send current to PIP 2">PIP 2</button>
-              <button class="ctrl" id="fsBtn" type="button" title="Fullscreen">⛶</button>
+              <button class="ctrl" id="pip1FromMain" type="button">PIP 1</button>
+              <button class="ctrl" id="pip2FromMain" type="button">PIP 2</button>
+              <button class="ctrl" id="fsBtn" type="button">Full</button>
             </div>
           </div>
           <div class="status" id="status"></div>
@@ -74,13 +73,13 @@
             <span class="pip-tag">PIP 1</span>
             <span class="pip-name" id="pip1Name">Empty</span>
             <div class="pip-tools">
-              <button type="button" class="mini" data-swap="1" title="Swap with main">⇄</button>
-              <button type="button" class="mini" data-close="1" title="Close">✕</button>
+              <button type="button" class="mini" data-swap="1">Swap</button>
+              <button type="button" class="mini" data-close="1">X</button>
             </div>
           </header>
           <video id="pip1Video" playsinline></video>
           <footer class="pip-audio">
-            <button type="button" class="mini" id="mutePip1" title="Unmute PIP 1">🔇</button>
+            <button type="button" class="mini" id="mutePip1">Unmute</button>
             <input id="volPip1" class="vol" type="range" min="0" max="1" step="0.01" value="0.6" />
           </footer>
           <div class="resize" data-resize="1"></div>
@@ -90,13 +89,13 @@
             <span class="pip-tag">PIP 2</span>
             <span class="pip-name" id="pip2Name">Empty</span>
             <div class="pip-tools">
-              <button type="button" class="mini" data-swap="2" title="Swap with main">⇄</button>
-              <button type="button" class="mini" data-close="2" title="Close">✕</button>
+              <button type="button" class="mini" data-swap="2">Swap</button>
+              <button type="button" class="mini" data-close="2">X</button>
             </div>
           </header>
           <video id="pip2Video" playsinline></video>
           <footer class="pip-audio">
-            <button type="button" class="mini" id="mutePip2" title="Unmute PIP 2">🔇</button>
+            <button type="button" class="mini" id="mutePip2">Unmute</button>
             <input id="volPip2" class="vol" type="range" min="0" max="1" step="0.01" value="0.6" />
           </footer>
           <div class="resize" data-resize="2"></div>
@@ -105,7 +104,6 @@
       <section class="guide">
         <div class="guide-head">
           <label class="search wide">
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79L20 21.5 21.5 20zM9.5 14C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"/></svg>
             <input id="channelSearch" type="search" placeholder="Search channels in this list…" autocomplete="off" />
           </label>
           <div class="count" id="channelCount">0 channels</div>
@@ -117,7 +115,7 @@
   <dialog id="modal">
     <form method="dialog" class="sheet">
       <h2 id="modalTitle">Load custom list</h2>
-      <p class="hint" id="modalHint">Paste a public M3U / M3U8 playlist URL. Only use streams you are allowed to watch.</p>
+      <p class="hint" id="modalHint">Paste a public M3U URL.</p>
       <input id="customUrl" type="url" placeholder="https://example.com/playlist.m3u" />
       <menu>
         <button value="cancel" type="submit">Close</button>
@@ -127,7 +125,7 @@
     </form>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
-  <script src="data/playlists.js"></script>
-  <script src="js/app.js"></script>
+  <script src="data/playlists.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
 </body>
 </html>
