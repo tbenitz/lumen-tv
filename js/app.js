@@ -1,40 +1,66 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const lists = window.LUMEN_PLAYLISTS;
-  const storeKey = "lumen-tv-v2";
+  const storeKey = "lumen-tv-v3";
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
   const state = {
-    listId: "featured", channels: [], filtered: [], query: "", listQuery: "",
-    popularFirst: true, favOnly: false, favorites: new Set(), current: null,
-    pip: { 1: null, 2: null }, hls: { main: null, 1: null, 2: null },
-    checkToken: 0, railHidden: false, guideHidden: false
+    listId: "movies", channels: [], filtered: [], query: "", listQuery: "",
+    popularFirst: true, favOnly: false, favorites: new Set(), deadUrls: new Set(),
+    current: null, pip: { 1: null, 2: null }, hls: { main: null, 1: null, 2: null },
+    checkToken: 0, railHidden: false, guideHidden: false, lastCheck: 0, session: {}, watch: 0
   };
+
   try {
     const saved = JSON.parse(localStorage.getItem(storeKey) || "{}");
     if (Array.isArray(saved.favorites)) state.favorites = new Set(saved.favorites);
+    if (Array.isArray(saved.deadUrls)) state.deadUrls = new Set(saved.deadUrls.slice(-800));
     if (typeof saved.popularFirst === "boolean") state.popularFirst = saved.popularFirst;
     if (typeof saved.railHidden === "boolean") state.railHidden = saved.railHidden;
     if (typeof saved.guideHidden === "boolean") state.guideHidden = saved.guideHidden;
+    if (saved.lastCheck) state.lastCheck = saved.lastCheck;
+    if (saved.session) state.session = saved.session;
     if (saved.vol) {
       $("volMain").value = saved.vol.main ?? 1;
       $("volPip1").value = saved.vol.p1 ?? 0.6;
       $("volPip2").value = saved.vol.p2 ?? 0.6;
     }
   } catch (e) {}
+
   const persist = () => localStorage.setItem(storeKey, JSON.stringify({
-    favorites: [...state.favorites], popularFirst: state.popularFirst,
-    railHidden: state.railHidden, guideHidden: state.guideHidden,
+    favorites: [...state.favorites],
+    deadUrls: [...state.deadUrls].slice(-800),
+    popularFirst: state.popularFirst,
+    railHidden: state.railHidden,
+    guideHidden: state.guideHidden,
+    lastCheck: state.lastCheck,
+    session: {
+      listId: state.listId,
+      current: state.current ? { name: state.current.name, url: state.current.url, group: state.current.group } : null,
+      pip1: state.pip[1] ? { name: state.pip[1].name, url: state.pip[1].url, group: state.pip[1].group } : null,
+      pip2: state.pip[2] ? { name: state.pip[2].name, url: state.pip[2].url, group: state.pip[2].group } : null
+    },
     vol: { main: $("volMain").value, p1: $("volPip1").value, p2: $("volPip2").value }
   }));
+
   const applyLayout = () => {
     $("app").classList.toggle("rail-collapsed", state.railHidden);
     $("stage").classList.toggle("guide-collapsed", state.guideHidden);
     $("toggleRail").textContent = state.railHidden ? "Show lists" : "Hide lists";
     $("toggleGuide").textContent = state.guideHidden ? "Show channels" : "Hide channels";
   };
+
   const toast = (msg) => {
     const el = $("status"); el.textContent = msg; el.classList.add("show");
     clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove("show"), 2800);
   };
+
+  const showCheckAge = () => {
+    const el = $("checkStatus");
+    if (!state.lastCheck) { el.textContent = "Never checked"; return; }
+    const days = Math.floor((Date.now() - state.lastCheck) / 86400000);
+    el.textContent = days === 0 ? "Checked today" : "Checked " + days + "d ago";
+  };
+
   const attr = (line, key) => {
     const m = line.match(new RegExp(key + '="([^"]*)"', "i"));
     return m ? m[1] : "";
@@ -51,20 +77,24 @@
   const looksLikeJunk = (s) => /gecko|libvlc|user-agent|applewebkit|mozilla\/|chrome\/\d|safari\/\d|vlc\/\d/i.test(s);
   const cleanName = (raw, fallback) => {
     let s = String(raw || "").replace(/^["']+|["']+$/g, "").trim();
-    s = s.replace(/Mozilla\/[\s\S]*/i, " ");
-    s = s.replace(/\(like Gecko\)[\s\S]*/ig, " ");
-    s = s.replace(/Chrome\/[\d.]+[\s\S]*/ig, " ");
-    s = s.replace(/Safari\/[\d.]+[\s\S]*/ig, " ");
-    s = s.replace(/VLC\/[\d.]+[\s\S]*/ig, " ");
-    s = s.replace(/LibVLC\/[\s\S]*/ig, " ");
+    s = s.replace(/Mozilla\/[\s\S]*/i, " ").replace(/\(like Gecko\)[\s\S]*/ig, " ");
+    s = s.replace(/Chrome\/[\d.]+[\s\S]*/ig, " ").replace(/Safari\/[\d.]+[\s\S]*/ig, " ");
+    s = s.replace(/VLC\/[\d.]+[\s\S]*/ig, " ").replace(/LibVLC\/[\s\S]*/ig, " ");
     s = s.replace(/http-user-agent[=:][\s\S]*/ig, " ");
-    s = s.replace(/\bgroup-title="[^"]*"[, ]*/ig, " ");
-    s = s.replace(/\btvg-[a-z-]+="[^"]*"[, ]*/ig, " ");
+    s = s.replace(/\bgroup-title="[^"]*"[, ]*/ig, " ").replace(/\btvg-[a-z-]+="[^"]*"[, ]*/ig, " ");
     s = s.replace(/\s+/g, " ").trim();
     if (!s || s.length < 2 || looksLikeJunk(s)) s = fallback || "Channel";
     if (s.length > 42) s = s.slice(0, 40) + "...";
     return s;
   };
+
+  const isEnglish = (ch) => {
+    const blob = ((ch.lang || "") + " " + ch.name + " " + (ch.group || "")).toLowerCase();
+    if (/english|\beng\b/.test(blob)) return true;
+    if (/\b(us|usa|uk|au|ca|nz)\b|united states|united kingdom|america|british|australia|canada/.test(blob)) return true;
+    return false;
+  };
+
   const parseM3U = (text) => {
     const lines = text.split(/\r?\n/), out = [], seen = new Set();
     for (let i = 0; i < lines.length; i++) {
@@ -76,17 +106,21 @@
         if (!n || n.startsWith("#")) continue;
         url = n; break;
       }
-      if (!url || url.startsWith("plugin://") || /youtube\.com\//i.test(url) || seen.has(url)) continue;
+      if (!url || url.startsWith("plugin://") || /youtube\.com\//i.test(url) || seen.has(url) || state.deadUrls.has(url)) continue;
       seen.add(url);
       const cut = lastCommaOutsideQuotes(line);
       const rawName = cut >= 0 ? line.slice(cut + 1).trim() : "";
       const tvg = attr(line, "tvg-name");
-      const base = (tvg && !looksLikeJunk(tvg)) ? tvg : rawName;
-      const name = cleanName(base, tvg || "Channel");
-      out.push({ name, group: cleanName(attr(line, "group-title") || "General", "General"), logo: attr(line, "tvg-logo"), url, score: popularity(name) });
+      const name = cleanName((tvg && !looksLikeJunk(tvg)) ? tvg : rawName, tvg || "Channel");
+      out.push({
+        name, group: cleanName(attr(line, "group-title") || "General", "General"),
+        logo: attr(line, "tvg-logo"), url, lang: attr(line, "tvg-language"),
+        score: popularity(name)
+      });
     }
     return out;
   };
+
   const popularity = (name) => {
     const n = name.toLowerCase(); let score = 0;
     window.LUMEN_POPULAR.forEach((term, i) => { if (n.includes(term)) score += (window.LUMEN_POPULAR.length - i) * 3; });
@@ -98,6 +132,7 @@
     else copy.sort((a, b) => a.name.localeCompare(b.name));
     return copy;
   };
+
   const renderLists = () => {
     const q = state.listQuery.toLowerCase();
     $("listNav").innerHTML = lists.filter((l) => !q || l.name.toLowerCase().includes(q) || l.desc.toLowerCase().includes(q)).map((l) => {
@@ -110,7 +145,7 @@
     return '<div class="thumb ph">' + letters + '</div>';
   };
   const renderChannels = () => {
-    let rows = state.channels;
+    let rows = state.channels.filter((c) => !state.deadUrls.has(c.url));
     if (state.favOnly) rows = rows.filter((c) => state.favorites.has(c.url));
     if (state.query) {
       const q = state.query.toLowerCase();
@@ -130,7 +165,52 @@
         '<button class="tiny" data-to="2" data-url="' + enc + '">PIP2</button></div></div></article>';
     }).join("") || '<p style="color:var(--muted);padding:12px">No live channels in this filter.</p>';
   };
+
   const findChannel = (url) => state.channels.find((c) => c.url === url) || state.current;
+  const pack = (ch) => ch ? { name: ch.name, url: ch.url, group: ch.group || "", lang: ch.lang || "" } : null;
+
+  const markDead = (ch, why) => {
+    if (!ch) return;
+    state.deadUrls.add(ch.url);
+    state.channels = state.channels.filter((c) => c.url !== ch.url);
+    persist(); renderChannels();
+    toast((ch.name || "Feed") + " removed (" + why + ")");
+  };
+
+  const playNext = () => {
+    const i = state.filtered.findIndex((c) => state.current && c.url === state.current.url);
+    const next = state.filtered[i + 1] || state.filtered[0];
+    if (next && (!state.current || next.url !== state.current.url)) playMain(next);
+  };
+
+  const frameCount = (video) => {
+    const q = video.getVideoPlaybackQuality && video.getVideoPlaybackQuality();
+    if (q && typeof q.totalVideoFrames === "number") return q.totalVideoFrames;
+    return video.webkitDecodedFrameCount || 0;
+  };
+
+  const watchBlack = (video, ch, slot) => {
+    const id = ++state.watch;
+    let last = -1, stagnant = 0, ticks = 0;
+    const t = setInterval(() => {
+      if (id !== state.watch) { clearInterval(t); return; }
+      const still = slot === "main" ? (state.current && state.current.url === ch.url) : (state.pip[slot] && state.pip[slot].url === ch.url);
+      if (!still) { clearInterval(t); return; }
+      if (video.paused) return;
+      ticks += 1;
+      const frames = frameCount(video);
+      const noPicture = (video.videoWidth || 0) === 0 || frames === last;
+      if (noPicture) stagnant += 1; else stagnant = 0;
+      last = frames;
+      if (ticks >= 5 && stagnant >= 4) {
+        clearInterval(t);
+        markDead(ch, "black screen");
+        if (slot === "main") playNext();
+        else closePip(slot);
+      }
+    }, 2500);
+  };
+
   const probeUrl = (url) => new Promise((resolve) => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6500);
@@ -142,47 +222,48 @@
       .catch(() => resolve("unknown"))
       .finally(() => clearTimeout(timer));
   });
-  async function checkFeeds(token) {
+
+  async function checkFeeds(force) {
+    const due = !state.lastCheck || (Date.now() - state.lastCheck > WEEK);
+    if (!force && !due) { showCheckAge(); return; }
+    const token = ++state.checkToken;
     const pill = $("checkStatus");
-    const queue = sortChannels(state.channels).slice(0, 120);
+    const queue = sortChannels(state.channels).slice(0, 80);
     let live = 0, dead = 0, checked = 0;
     pill.classList.add("hot");
     const runOne = async (ch) => {
       if (token !== state.checkToken) return;
       const result = await probeUrl(ch.url);
       checked += 1;
-      if (result === "dead") {
-        dead += 1;
-        state.channels = state.channels.filter((c) => c.url !== ch.url);
-        if (state.current && state.current.url === ch.url) state.current = null;
-      } else live += 1;
-      if (checked % 4 === 0 || result === "dead") {
-        pill.textContent = "Checking " + checked + "/" + queue.length + " · removed " + dead;
-        renderChannels();
-      }
+      if (result === "dead") { dead += 1; markDead(ch, "dead link"); }
+      else live += 1;
+      if (checked % 5 === 0) pill.textContent = "Checking " + checked + "/" + queue.length + " · removed " + dead;
     };
-    await Promise.all([0, 1, 2, 3].map(async (offset) => {
-      for (let i = offset; i < queue.length; i += 4) {
+    await Promise.all([0, 1, 2].map(async (offset) => {
+      for (let i = offset; i < queue.length; i += 3) {
         if (token !== state.checkToken) return;
         await runOne(queue[i]);
       }
     }));
     if (token !== state.checkToken) return;
+    state.lastCheck = Date.now();
+    persist();
     pill.classList.remove("hot");
     pill.textContent = live + " reachable · " + dead + " removed";
+    setTimeout(showCheckAge, 4000);
     renderChannels();
   }
-  async function loadList(id) {
+
+  async function loadList(id, opts) {
+    opts = opts || {};
     const list = lists.find((l) => l.id === id) || lists[0];
     state.listId = list.id;
-    state.checkToken += 1;
-    const token = state.checkToken;
     $("nowList").textContent = list.name;
-    $("checkStatus").textContent = "Loading...";
     renderLists();
     try {
       if (list.type === "featured") {
-        state.channels = window.LUMEN_FEATURED.map((c) => Object.assign({}, c, { name: cleanName(c.name, "Channel"), score: c.score || popularity(c.name) }));
+        state.channels = window.LUMEN_FEATURED.map((c) => Object.assign({}, c, { name: cleanName(c.name, "Channel"), score: c.score || popularity(c.name) }))
+          .filter((c) => !state.deadUrls.has(c.url));
       } else {
         const res = await fetch(list.url);
         if (!res.ok) throw new Error("Playlist HTTP " + res.status);
@@ -190,15 +271,13 @@
         if (!state.channels.length) throw new Error("No playable entries");
       }
       renderChannels();
-      if (list.type === "featured" && !state.current && state.channels[0]) {
-        playMain(state.channels.find((c) => /demo/i.test(c.name)) || state.channels[0]);
-      }
-      checkFeeds(token);
+      showCheckAge();
+      if (opts.after) await opts.after();
     } catch (err) {
-      $("checkStatus").textContent = "";
       $("channels").innerHTML = '<p style="color:var(--danger);padding:12px">' + escapeHtml(err.message) + '</p>';
     }
   }
+
   function attachHls(video, url, slot) {
     destroyHls(slot); video.pause();
     if (window.Hls && Hls.isSupported()) {
@@ -209,7 +288,11 @@
         if (!data.fatal) return;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
         else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-        else toast("This feed will not play in a browser.");
+        else {
+          const ch = slot === "main" ? state.current : state.pip[slot];
+          markDead(ch, "will not play");
+          if (slot === "main") playNext();
+        }
       });
       state.hls[slot] = hls;
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
@@ -220,8 +303,9 @@
     const h = state.hls[slot];
     if (h) { try { h.destroy(); } catch (e) {} state.hls[slot] = null; }
   }
+
   function playMain(ch) {
-    if (!ch) return;
+    if (!ch || state.deadUrls.has(ch.url)) return;
     state.current = ch;
     $("nowTitle").textContent = ch.name;
     $("veil").classList.add("hide");
@@ -230,10 +314,11 @@
     video.muted = false; video.volume = Number($("volMain").value);
     attachHls(video, ch.url, "main");
     $("playBtn").textContent = "Pause";
-    renderChannels();
+    watchBlack(video, ch, "main");
+    persist(); renderChannels();
   }
   function playPip(slot, ch) {
-    if (!ch) return;
+    if (!ch || state.deadUrls.has(ch.url)) return;
     state.pip[slot] = ch;
     $("pip" + slot).hidden = false;
     $("pip" + slot + "Name").textContent = ch.name;
@@ -242,6 +327,8 @@
     attachHls(video, ch.url, slot);
     $("mutePip" + slot).textContent = "Unmute";
     positionPip(slot);
+    watchBlack(video, ch, slot);
+    persist();
   }
   function closePip(slot) {
     destroyHls(slot);
@@ -249,6 +336,7 @@
     video.removeAttribute("src"); video.load();
     state.pip[slot] = null;
     $("pip" + slot).hidden = true;
+    persist();
   }
   function swapPip(slot) {
     const a = state.current, b = state.pip[slot];
@@ -265,6 +353,7 @@
       el.style.bottom = slot === 1 ? "auto" : "64px";
     }
   }
+
   function enableDragResize() {
     let mode = null;
     document.addEventListener("pointerdown", (e) => {
@@ -295,6 +384,33 @@
     });
     document.addEventListener("pointerup", () => { mode = null; });
   }
+
+  async function boot() {
+    const sess = state.session || {};
+    const hasLast = sess.current && sess.current.url && !state.deadUrls.has(sess.current.url);
+    if (hasLast) {
+      await loadList(sess.listId || "featured", {
+        after: () => {
+          const ch = findChannel(sess.current.url) || pack(sess.current);
+          playMain(ch);
+          if (sess.pip1 && !state.deadUrls.has(sess.pip1.url)) playPip(1, findChannel(sess.pip1.url) || pack(sess.pip1));
+          if (sess.pip2 && !state.deadUrls.has(sess.pip2.url)) playPip(2, findChannel(sess.pip2.url) || pack(sess.pip2));
+        }
+      });
+    } else {
+      await loadList("movies", {
+        after: () => {
+          const eng = state.channels.filter(isEnglish);
+          const pool = eng.length ? eng : state.channels;
+          if (!pool.length) return;
+          playMain(pool[Math.floor(Math.random() * pool.length)]);
+        }
+      });
+    }
+    if (!state.lastCheck || Date.now() - state.lastCheck > WEEK) checkFeeds(false);
+    else showCheckAge();
+  }
+
   $("listNav").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-list]");
     if (btn) loadList(btn.dataset.list);
@@ -313,12 +429,16 @@
       return;
     }
     const card = e.target.closest(".card");
-    if (card) playMain(findChannel(decodeURIComponent(card.dataset.url)) || state.filtered.find((c) => c.url === decodeURIComponent(card.dataset.url)));
+    if (card) {
+      const url = decodeURIComponent(card.dataset.url);
+      playMain(findChannel(url) || state.filtered.find((c) => c.url === url));
+    }
   });
   $("listSearch").addEventListener("input", (e) => { state.listQuery = e.target.value; renderLists(); });
   $("channelSearch").addEventListener("input", (e) => { state.query = e.target.value; renderChannels(); });
   $("favFilterBtn").addEventListener("click", () => { state.favOnly = !state.favOnly; $("favFilterBtn").classList.toggle("active", state.favOnly); renderChannels(); });
   $("sortBtn").addEventListener("click", () => { state.popularFirst = !state.popularFirst; $("sortBtn").textContent = state.popularFirst ? "Popular first" : "A-Z"; persist(); renderChannels(); });
+  $("checkBtn").addEventListener("click", () => checkFeeds(true));
   $("toggleRail").addEventListener("click", () => { state.railHidden = !state.railHidden; $("rail").classList.toggle("open", !state.railHidden); applyLayout(); persist(); });
   $("toggleGuide").addEventListener("click", () => { state.guideHidden = !state.guideHidden; applyLayout(); persist(); });
   $("playBtn").addEventListener("click", () => { const v = $("mainVideo"); if (v.paused) { v.play(); $("playBtn").textContent = "Pause"; } else { v.pause(); $("playBtn").textContent = "Play"; } });
@@ -339,7 +459,7 @@
   $("fsBtn").addEventListener("click", () => { const el = $("theater"); if (!document.fullscreenElement) el.requestFullscreen && el.requestFullscreen(); else document.exitFullscreen && document.exitFullscreen(); });
   const modal = $("modal");
   $("customBtn").addEventListener("click", () => { $("modalTitle").textContent = "Load custom list"; $("customUrl").hidden = false; $("keys").hidden = true; $("modalOk").hidden = false; modal.showModal(); });
-  $("helpBtn").addEventListener("click", () => { $("modalTitle").textContent = "Shortcuts"; $("customUrl").hidden = true; $("modalOk").hidden = true; $("keys").hidden = false; $("keys").textContent = "[ hide lists\n] hide channels\nSpace play\n1 / 2 PIP"; modal.showModal(); });
+  $("helpBtn").addEventListener("click", () => { $("modalTitle").textContent = "Shortcuts"; $("customUrl").hidden = true; $("modalOk").hidden = true; $("keys").hidden = false; $("keys").textContent = "[ lists  ] channels\nSpace play  1/2 PIP\nCheck feeds ~ weekly"; modal.showModal(); });
   modal.addEventListener("close", async () => {
     if (modal.returnValue !== "ok") return;
     const url = $("customUrl").value.trim();
@@ -358,8 +478,9 @@
     if (e.key === "f" || e.key === "F") $("fsBtn").click();
     if (e.key === "Escape") { if (state.pip[2]) closePip(2); else if (state.pip[1]) closePip(1); }
   });
+
   enableDragResize();
   applyLayout();
   renderLists();
-  loadList("featured");
+  boot();
 })();
