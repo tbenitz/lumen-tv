@@ -2,38 +2,32 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#07070c" />
-  <meta name="description" content="Lumen TV — public-stream viewer with dual PIP." />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Lumen TV</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="css/app.css?v=4" />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/app.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='14' width='64' height='64' fill='%230c0c14'/%3E%3Ccircle cx='32' cy='32' r='14' fill='none' stroke='%23e8c07d' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23e8c07d'/%3E%3C/svg%3E" />
 </head>
 <body>
   <div class="app" id="app">
     <aside class="rail" id="rail">
       <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
+        <div class="logo"></div>
         <div>
           <div class="brand-name">Lumen TV</div>
-          <div class="brand-sub">Public streams · Dual PIP</div>
+          <div class="brand-sub">Public streams</div>
         </div>
       </div>
-      <label class="search">
-        <input id="listSearch" type="search" placeholder="Filter lists…" autocomplete="off" />
-      </label>
-      <nav class="lists" id="listNav" aria-label="Channel lists"></nav>
+      <label class="search"><input id="listSearch" type="search" placeholder="Filter lists..." autocomplete="off" /></label>
+      <nav class="lists" id="listNav"></nav>
       <div class="rail-foot">
         <button class="ghost" id="customBtn" type="button">Load custom M3U</button>
         <button class="ghost" id="helpBtn" type="button">Shortcuts</button>
       </div>
     </aside>
-    <main class="stage">
+    <main class="stage" id="stage">
       <header class="topbar">
-        <button class="icon-btn mobile-only" id="toggleRail" type="button" aria-label="Toggle lists">☰</button>
+        <button class="icon-btn" id="toggleRail" type="button">Hide lists</button>
+        <button class="icon-btn" id="toggleGuide" type="button">Hide channels</button>
         <div class="now">
           <span class="live-dot" id="liveDot"></span>
           <div>
@@ -42,18 +36,19 @@
           </div>
         </div>
         <div class="top-actions">
+          <span class="check-pill" id="checkStatus"></span>
           <button class="chip" id="favFilterBtn" type="button">Favorites</button>
           <button class="chip" id="sortBtn" type="button">Popular first</button>
         </div>
       </header>
       <section class="theater" id="theater">
-        <div class="player-shell" id="playerShell">
+        <div class="player-shell">
           <video id="mainVideo" playsinline></video>
           <div class="poster-veil" id="veil">
             <div class="veil-mark">LUMEN</div>
-            <p>Open https://tbenitz.github.io/lumen-tv/ then click a channel. Featured includes a guaranteed HLS demo.</p>
+            <p>Hide lists and channels for a bigger picture. Dead feeds are removed as they are checked.</p>
           </div>
-          <div class="osd" id="osd">
+          <div class="osd">
             <div class="osd-left">
               <button class="ctrl" id="playBtn" type="button">Play</button>
               <button class="ctrl" id="muteMain" type="button">Mute</button>
@@ -68,45 +63,27 @@
           </div>
           <div class="status" id="status"></div>
         </div>
-        <article class="pip" id="pip1" data-slot="1" hidden>
-          <header class="pip-bar">
-            <span class="pip-tag">PIP 1</span>
-            <span class="pip-name" id="pip1Name">Empty</span>
-            <div class="pip-tools">
-              <button type="button" class="mini" data-swap="1">Swap</button>
-              <button type="button" class="mini" data-close="1">X</button>
-            </div>
+        <article class="pip" id="pip1" hidden>
+          <header class="pip-bar"><span class="pip-tag">PIP 1</span><span class="pip-name" id="pip1Name">Empty</span>
+            <div class="pip-tools"><button class="mini" data-swap="1" type="button">Swap</button><button class="mini" data-close="1" type="button">X</button></div>
           </header>
           <video id="pip1Video" playsinline></video>
-          <footer class="pip-audio">
-            <button type="button" class="mini" id="mutePip1">Unmute</button>
-            <input id="volPip1" class="vol" type="range" min="0" max="1" step="0.01" value="0.6" />
-          </footer>
+          <footer class="pip-audio"><button class="mini" id="mutePip1" type="button">Unmute</button><input id="volPip1" class="vol" type="range" min="0" max="1" step="0.01" value="0.6" /></footer>
           <div class="resize" data-resize="1"></div>
         </article>
-        <article class="pip" id="pip2" data-slot="2" hidden>
-          <header class="pip-bar">
-            <span class="pip-tag">PIP 2</span>
-            <span class="pip-name" id="pip2Name">Empty</span>
-            <div class="pip-tools">
-              <button type="button" class="mini" data-swap="2">Swap</button>
-              <button type="button" class="mini" data-close="2">X</button>
-            </div>
+        <article class="pip" id="pip2" hidden>
+          <header class="pip-bar"><span class="pip-tag">PIP 2</span><span class="pip-name" id="pip2Name">Empty</span>
+            <div class="pip-tools"><button class="mini" data-swap="2" type="button">Swap</button><button class="mini" data-close="2" type="button">X</button></div>
           </header>
           <video id="pip2Video" playsinline></video>
-          <footer class="pip-audio">
-            <button type="button" class="mini" id="mutePip2">Unmute</button>
-            <input id="volPip2" class="vol" type="range" min="0" max="1" step="0.01" value="0.6" />
-          </footer>
+          <footer class="pip-audio"><button class="mini" id="mutePip2" type="button">Unmute</button><input id="volPip2" class="vol" type="range" min="0" max="1" step="0.01" value="0.6" /></footer>
           <div class="resize" data-resize="2"></div>
         </article>
       </section>
       <section class="guide">
         <div class="guide-head">
-          <label class="search wide">
-            <input id="channelSearch" type="search" placeholder="Search channels in this list…" autocomplete="off" />
-          </label>
-          <div class="count" id="channelCount">0 channels</div>
+          <label class="search wide"><input id="channelSearch" type="search" placeholder="Search channels..." autocomplete="off" /></label>
+          <div class="count" id="channelCount">0 live</div>
         </div>
         <div class="channels" id="channels"></div>
       </section>
@@ -117,15 +94,12 @@
       <h2 id="modalTitle">Load custom list</h2>
       <p class="hint" id="modalHint">Paste a public M3U URL.</p>
       <input id="customUrl" type="url" placeholder="https://example.com/playlist.m3u" />
-      <menu>
-        <button value="cancel" type="submit">Close</button>
-        <button id="modalOk" value="ok" type="submit">Load</button>
-      </menu>
+      <menu><button value="cancel">Close</button><button id="modalOk" value="ok">Load</button></menu>
       <pre class="keys" id="keys" hidden></pre>
     </form>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
-  <script src="data/playlists.js?v=2"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="data/playlists.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>
