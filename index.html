@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Lumen TV</title>
-  <link rel="stylesheet" href="css/app.css?v=5" />
+  <link rel="stylesheet" href="css/app.css?v=6" />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet" />
 </head>
 <body>
@@ -47,7 +47,7 @@
           <video id="mainVideo" playsinline></video>
           <div class="poster-veil" id="veil">
             <div class="veil-mark">LUMEN</div>
-            <p>Last session resumes automatically. Check feeds about once a week.</p>
+            <p>Search every list. Blank feeds skip to the next card. Check Feeds tests the cards you can see.</p>
           </div>
           <div class="osd">
             <div class="osd-left">
@@ -83,7 +83,8 @@
       </section>
       <section class="guide">
         <div class="guide-head">
-          <label class="search wide"><input id="channelSearch" type="search" placeholder="Search channels..." autocomplete="off" /></label>
+          <label class="search wide"><input id="channelSearch" type="search" placeholder="Search every list..." autocomplete="off" /></label>
+          <button class="chip active" id="globalSearchBtn" type="button">All lists</button>
           <div class="count" id="channelCount">0 live</div>
         </div>
         <div class="channels" id="channels"></div>
@@ -100,7 +101,7 @@
     </form>
   </dialog>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js"></script>
-  <script src="data/playlists.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="data/playlists.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>
